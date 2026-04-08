@@ -1,0 +1,392 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Barbearia TM scheduling API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: slots
+    description: Slot availability operations
+  - name: bookings
+    description: Booking operations
+  - name: admin
+    description: Admin operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /slots:
+    get:
+      operationId: getSlots
+      tags: [slots]
+      summary: Get available slots for a date
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Date in YYYY-MM-DD format
+      responses:
+        "200":
+          description: List of available time slots
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlotsResponse"
+
+  /slots/month:
+    get:
+      operationId: getSlotsMonth
+      tags: [slots]
+      summary: Get slot availability summary for a month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      responses:
+        "200":
+          description: Map of dates to available slot counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthSlotsResponse"
+
+  /bookings:
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a new booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingBody"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Time slot not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Invalid password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/slots:
+    get:
+      operationId: getAdminSlots
+      tags: [admin]
+      summary: Get all slots for a date with status
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All slots with their availability status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSlotsResponse"
+    put:
+      operationId: updateAdminSlots
+      tags: [admin]
+      summary: Update slot availability for a date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSlotsBody"
+      responses:
+        "200":
+          description: Slots updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSlotsResponse"
+
+  /admin/bookings:
+    get:
+      operationId: getAdminBookings
+      tags: [admin]
+      summary: Get bookings for a date
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+
+  /admin/bookings/{id}:
+    delete:
+      operationId: cancelBooking
+      tags: [admin]
+      summary: Cancel a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Booking cancelled
+        "404":
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    SlotsResponse:
+      type: object
+      properties:
+        date:
+          type: string
+        availableSlots:
+          type: array
+          items:
+            type: string
+        bookedSlots:
+          type: array
+          items:
+            type: string
+      required:
+        - date
+        - availableSlots
+        - bookedSlots
+
+    MonthSlotsResponse:
+      type: object
+      properties:
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/DaySlotSummary"
+      required:
+        - days
+
+    DaySlotSummary:
+      type: object
+      properties:
+        date:
+          type: string
+        availableCount:
+          type: integer
+        totalCount:
+          type: integer
+      required:
+        - date
+        - availableCount
+        - totalCount
+
+    CreateBookingBody:
+      type: object
+      properties:
+        clientName:
+          type: string
+        clientPhone:
+          type: string
+        services:
+          type: string
+        date:
+          type: string
+        timeSlot:
+          type: string
+        totalPrice:
+          type: integer
+      required:
+        - clientName
+        - clientPhone
+        - services
+        - date
+        - timeSlot
+        - totalPrice
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        clientName:
+          type: string
+        clientPhone:
+          type: string
+        services:
+          type: string
+        date:
+          type: string
+        timeSlot:
+          type: string
+        totalPrice:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - clientName
+        - clientPhone
+        - services
+        - date
+        - timeSlot
+        - totalPrice
+        - createdAt
+
+    AdminLoginBody:
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password
+
+    AdminLoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+      required:
+        - success
+        - token
+
+    AdminSlotsResponse:
+      type: object
+      properties:
+        date:
+          type: string
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSlotItem"
+      required:
+        - date
+        - slots
+
+    AdminSlotItem:
+      type: object
+      properties:
+        time:
+          type: string
+        status:
+          type: string
+          enum: [available, blocked, booked]
+      required:
+        - time
+        - status
+
+    UpdateSlotsBody:
+      type: object
+      properties:
+        date:
+          type: string
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotUpdate"
+      required:
+        - date
+        - slots
+
+    SlotUpdate:
+      type: object
+      properties:
+        time:
+          type: string
+        available:
+          type: boolean
+      required:
+        - time
+        - available
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
